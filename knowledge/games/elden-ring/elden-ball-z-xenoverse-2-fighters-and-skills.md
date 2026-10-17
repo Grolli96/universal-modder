@@ -2,19 +2,19 @@
 kind: game
 title: "Elden Ball Z: Dragon Ball Xenoverse 2 fighters, animations and skills in Elden Ring (native Rust DLL via ModEngine2)"
 game: Elden Ring
-games_also: ["Dragon Ball Xenoverse 2"]
-game_version: "Elden Ring 1.17.1 (exe 2.7.1.0, Steam build 25080141), Dragon Ball Xenoverse 2 (Steam, 2026-10 install with DLC CPKs), Windows 10 22H2"
+games_also: ["Dragon Ball Xenoverse 2", "Dragon Ball Z: Kakarot"]
+game_version: "Elden Ring 1.17.1 (exe 2.7.1.0, Steam build 25080141), Dragon Ball Xenoverse 2 (Steam, 2026-10 install with DLC CPKs), Dragon Ball Z: Kakarot (Steam, UE 4.21, pak v7), Windows 10 22H2"
 platform: windows
 engine: fromsoft
 route: passthrough
-tools: ["ModEngine2 2.1.0 (external_dlls)", "fromsoftware-rs (rev 6933967b, Ww2710 RVA table)", "hudhook (DX12 ImGui overlay, MinHook)", "glam", "Rust stable x86_64-pc-windows-msvc, crt-static", "XV2-Tools / Xv2CoreLib (LazyBone152, MIT) on .NET 10"]
+tools: ["ModEngine2 2.1.0 (external_dlls)", "fromsoftware-rs (rev 6933967b, Ww2710 RVA table)", "hudhook (DX12 ImGui overlay, MinHook)", "glam", "Rust stable x86_64-pc-windows-msvc, crt-static", "XV2-Tools / Xv2CoreLib (LazyBone152, MIT) on .NET 10", "CUE4Parse + CUE4Parse-Conversion 1.2.2.202610 (Apache-2.0, EGame.GAME_UE4_21)"]
 anti_cheat: "EasyAntiCheat: never touched. ModEngine2 launches the game offline without EAC; online play only through the plain Steam launch"
 status: released
 agents: ["Claude Code (Opus 5.5)"]
 humans: ["Grolli"]
 date: 2026-10-17
 links: []
-tags: [mashup, passthrough, d3d12-overlay, imgui, cpu-skinning, retarget, animation-sampling, skills, bac, bsa, eepk, flight, hud, xinput-hook]
+tags: [mashup, passthrough, d3d12-overlay, imgui, cpu-skinning, retarget, animation-sampling, skills, bac, bsa, eepk, flight, hud, xinput-hook, unreal, cue4parse, cascade-particles]
 ---
 
 # Elden Ball Z: Dragon Ball Xenoverse 2 fighters, animations and skills in Elden Ring
@@ -22,8 +22,10 @@ tags: [mashup, passthrough, d3d12-overlay, imgui, cpu-skinning, retarget, animat
 > Elden Ring played as Goku (and, in earlier versions, Vegeta, Gohan SSJ2, Ultra Instinct Goku) with the
 > fighter's real Xenoverse 2 model, animations and skill set: Kamehameha and the other supers run from XV2's own
 > BAC/BSA/BDM/EEPK data, a creator-made "Warp Kamehameha", an XV2-style skill palette, Kakarot-style flight and
-> HUD (recreated, no Kakarot files). A native Rust DLL loaded by ModEngine2 draws everything over the game; a
-> .NET setup tool converts the player's own XV2 CPKs at first run, so nothing from either game is shipped.
+> HUD. Since 0.5.0, when Dragon Ball Z: Kakarot is installed, Goku's model, animations (locomotion, flight,
+> combos, Kamehameha) and skill particles come from the player's Kakarot paks instead, timed to the XV2 skill
+> timelines. A native Rust DLL loaded by ModEngine2 draws everything over the game; .NET setup tools convert the
+> player's own XV2 CPKs and Kakarot paks at install time, so nothing from any game is shipped.
 > Verified by an in-game test mode (10 self-checks) plus recorded runs reviewed frame by frame.
 
 ## Setup
@@ -31,6 +33,12 @@ tags: [mashup, passthrough, d3d12-overlay, imgui, cpu-skinning, retarget, animat
   `external_dlls`). TOML paths must be single-quoted literals ('C:\...'), double quotes treat `\U` as an escape.
 - XV2: CPKs read in place with Xv2CoreLib's CPK_Reader (base + every `data*.cpk`, descending order so DLC wins).
   Xv2CoreLib needs its parent folder literally named `XV2 Tools` to build.
+- Kakarot: `AT/Content/Paks` read in place with CUE4Parse (`DefaultFileProvider`, `EGame.GAME_UE4_21`); the pak
+  index is not encrypted (footer: version 7, encrypted-index flag 0, zero key GUID), compression zlib.
+  Goku = `AT/Content/Art/MDL/Cpl/Cpl001/Model/Cpl001p1c01s1` (338 bones, LOD1 20.5k tris), animations in
+  `Art/ANM/cpl/C001A` (Goku) and `C000A` (shared), skill montages `Blueprints/Character/C001A/BTL/SKL/AM_*`
+  (they name the sequences: Kamehameha = `C001A_S_SKL001_Bgn_01ST/02LP` then `Sht_01ST/02LP/03ED`), particles
+  `Art/EFF/e/skill/a/Cpl001/Particles/PS_*` (Cascade) and `PS_skill_cmn_kidan_*` (Ki blast).
 - Setup output: `%LOCALAPPDATA%\DBZRing\fighters\<CODE>.dbzm|.fx|.skills.json|.portrait.dds` + `ready.txt` (versioned
   marker, bump it whenever the export changes so existing installs re-run).
 
@@ -73,7 +81,8 @@ as the source (IoStore containers are encrypted, the key is behind SteamStub: no
 3. Launch with Steam running: `modengine2_launcher -t er -c config.toml` (offline, no EAC).
 
 ## Verification
-In-game test mode (activated by a JSON file) presses Enter through menus, then checks in-world, fighters-ready,
+Kakarot conversion: offline renders of bind pose and sampled clips (preview script) before any game run, then
+the same in-game test (10/10 pass with the Kakarot Goku, 8931 triangles drawn). In-game test mode (activated by a JSON file) presses Enter through menus, then checks in-world, fighters-ready,
 fighter-drawn, hud-drawn, xv2-animation, ki-blast, super, flight, kakarot-hud, xv2-palette and appends pass/fail
 lines; recorded 2-10 min runs were reviewed as contact sheets (caught: black void after flying through a door,
 floating feet, HUD over loading tips). Not verified: the warp-behind-enemy (no enemy near the test grace), controller
@@ -93,6 +102,11 @@ input on real pads (keyboard only), EMA/EMP effect animations (static models and
 6. **Black waist flaps (Vegeta).** Cause: physics parts have no DYT entry. Fix: fall back to the parent part's DYT.
 7. **Skill mods (.x2m).** Readable (zip: SKILL/NNNN_CCC_SSSS.* + x2m.xml); mount them over the CPK view. Changing
    MOD_AUTHOR in x2m.xml does not change ownership: only ship skills built from the player's own game data.
+8. **DRAGON BALL Z KAKAROT is readable.** UE 4.21, pak v7, index not encrypted: CUE4Parse (GAME_UE4_21) loads
+   meshes, animations and Cascade particles in place. Convert UE (x, y, z) cm to XV2 (x, z, -y) m, quats (x, z, -y, w);
+   rename body bones to XV2 names so the same retarget sheet works. Use LOD1 (ImGui draws with 16-bit indices).
+9. **Kakarot animations left the arms in bind pose.** Cause: the animation skeleton spells bones with other case
+   (Pelvis, UpperArm_L) than the mesh. Fix: match bone names case-insensitively (FName semantics).
 
 ## Assets
 None generated: every model, texture, animation and effect is converted from the player's own Xenoverse 2 at
@@ -100,4 +114,4 @@ setup time; HUDs are drawn procedurally.
 
 ## Open questions
 - EMA (effect model animation) and EMP (particle) playback; camera events; victim reactions; melee rush skills.
-- Kakarot assets: paks believed encrypted; only recreated look-alikes were done.
+- Kakarot assets: done in 0.5.0 (see Gotchas 8-9); per-emitter particle playback is still approximated.
